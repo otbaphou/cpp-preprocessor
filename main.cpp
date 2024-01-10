@@ -30,7 +30,7 @@ pair<vector<string>, bool> UnpackFile(const path& in_file, const vector<path>& i
     while(getline(in_file_unpack, line))
     {
         smatch match;
-        if(regex_match(line, match, include_reg_f))
+        if(regex_match(line, match, include_reg_f) || regex_match(line, match, include_reg_s))
         {
             path file_path = in_file.parent_path() / string(match[1]);
             
@@ -38,10 +38,14 @@ pair<vector<string>, bool> UnpackFile(const path& in_file, const vector<path>& i
             
             if(!lines.first.empty())
             {
-            for(string& line_ : lines.first)
-                rows.push_back(line_);
-            }else
-            {
+                for(string& line_ : lines.first)
+                {
+                    rows.push_back(line_);
+                }
+                line_num++;
+                continue;
+            }
+
                 bool found = false;
                 
                 for(auto& dir : include_directories)
@@ -51,13 +55,6 @@ pair<vector<string>, bool> UnpackFile(const path& in_file, const vector<path>& i
                     {
                         ifstream include_file(tmp);
                         
-                        if(!include_file.is_open())
-                        { 
-                        cout << "unknown include file " << tmp.filename().string()
-                        << " at file " << in_file.string() << " at line " << line_num << endl;
-                        return {rows, false};
-                        }
-                        
                         for(string& line_ : UnpackFile(tmp, include_directories, line_num).first)
                         rows.push_back(line_);
                     
@@ -66,39 +63,14 @@ pair<vector<string>, bool> UnpackFile(const path& in_file, const vector<path>& i
                     }
                 }
                 
-                    if (!found) 
-                    {
-                    cout << "unknown include file " << file_path.filename().string()
-                    << " at file " << in_file.string() << " at line " << line_num << endl;
-                    return {rows, false};
-                    }
-            }
-        }else if(regex_match(line, match, include_reg_s))
-        {
-            bool found = false;
-            path file_path = string(match[1]);
-            
-            for(const auto& dir : include_directories)
-            {
-                path tmp = dir / file_path;
-                if(filesystem::exists(tmp))
-                {
-                    ifstream include_file(tmp);
-
-                    for(string& line_ : UnpackFile(tmp, include_directories, line_num).first)
-                rows.push_back(line_);
-                    
-                    found=true;
-                    break;
-                }
                 if (!found) 
                 {
                 cout << "unknown include file " << file_path.filename().string()
                 << " at file " << in_file.string() << " at line " << line_num << endl;
                 return {rows, false};
                 }
-            }
-        } else
+        }
+        else
         {
            rows.push_back(line); 
         }
@@ -111,8 +83,6 @@ pair<vector<string>, bool> UnpackFile(const path& in_file, const vector<path>& i
 // напишите эту функцию
 bool Preprocess(const path& in_file, const path& out_file, const vector<path>& include_directories)
 {
-    static regex include_reg_f(R"(\s*#\s*include\s*"([^"]*)\"\s*)");
-    static regex include_reg_s(R"(\s*#\s*include\s*<([^>]*)>\s*)");
     const path pPath = in_file.parent_path();
     
     ifstream in_file_preprocess_(in_file);
